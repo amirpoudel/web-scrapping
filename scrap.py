@@ -116,6 +116,36 @@ class Scraper:
         domain = parsed_url.netloc
         return any(exclude_domain in domain for exclude_domain in self.exclude_domains)
 
+    def download_pdf(self,pdf_url):
+
+        pdf_url = url
+        pdf_file_path = os.path.join(self.folderPath, "data", file_name + ".pdf")
+        try:
+            # Download PDF file
+            response = requests.get(pdf_url)
+            if response.status_code == 200:
+                with open(pdf_file_path, 'wb') as file:
+                    file.write(response.content)
+                with open(scraped_urls_file, 'a', newline='', encoding='utf-8') as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow([f"data/{file_name}.pdf", url])
+                self.add_visited_url(url)
+            else:
+                print(f"Failed to download PDF: {pdf_url}")
+        except Exception as e:
+             print(f"Error downloading PDF: {e}")
+
+    def download_html_to_text(self, url, soup):
+        with open(file_path, 'w', encoding='utf-8') as file:
+                file.write(soup.get_text())
+                file.write(f"\n\nScraped at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+        with open(self.scraped_url_path, 'a', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([f"data/{file_name}.txt", url])
+
+        self.add_visited_url(url)
+
     def save_data(self, url, soup):
         file_name = self.extract_filename_from_url(url)
         if file_name == "":
@@ -127,35 +157,15 @@ class Scraper:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
         # Check if the content is a PDF
-        if url.endswith(".pdf"):
-            pdf_url = url
-            pdf_file_path = os.path.join(self.folderPath, "data", file_name + ".pdf")
-            try:
-                # Download PDF file
-                response = requests.get(pdf_url)
-                if response.status_code == 200:
-                    with open(pdf_file_path, 'wb') as file:
-                        file.write(response.content)
-                    with open(scraped_urls_file, 'a', newline='', encoding='utf-8') as csvfile:
-                        writer = csv.writer(csvfile)
-                        writer.writerow([f"data/{file_name}.pdf", url])
-                    self.add_visited_url(url)
-                else:
-                    print(f"Failed to download PDF: {pdf_url}")
-            except Exception as e:
-                print(f"Error downloading PDF: {e}")
+        print(url)
+        if url.endswith(".pdf") or url.endswith(".pdf"):
+            print("URL FOUND PDF ! URL : ",url)
+            self.download_pdf(url)
 
-        else:
-            # Handle HTML content
-            with open(file_path, 'w', encoding='utf-8') as file:
-                file.write(soup.get_text())
-                file.write(f"\n\nScraped at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-            with open(scraped_urls_file, 'a', newline='', encoding='utf-8') as csvfile:
-                writer = csv.writer(csvfile)
-                writer.writerow([f"data/{file_name}.txt", url])
-
-            self.add_visited_url(url)
+        # Handle HTML content
+        # else:
+        #     self.download_html_to_text(url, soup)
+            
 
     """
     def save_data(self, url, soup):
@@ -246,11 +256,9 @@ class Scraper:
         if html_data:
             soup = BeautifulSoup(html_data, 'html.parser')
             self.save_data(url, soup)
-            with open(self.visited_url_path, 'a', encoding='utf-8') as visited_file:
-                visited_file.write(url + '\n')
             soup = BeautifulSoup(html_data, 'html.parser')
             links = soup.find_all('a', href=True)
-
+            self.add_visited_url(url)
             for link in links:
                 absolute_url = urljoin(url, link['href'])
                 if not self.should_exclude_domain(absolute_url):
