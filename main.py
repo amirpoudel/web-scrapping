@@ -3,11 +3,11 @@ from crawl import WebCrawler
 from scrap import Scraper
 
 
-excluded_domains=  ["github.com", "skills.github.com", "docs.github.com", "services.github.com", "socialimpact.github.com", "lab.github.com", "twitter.com", "help.twitter.com"]
-url='https://www.usenix.org/conference/usenixsecurity24/summer-accepted-papers'
+exclude_domains=  ["github.com", "skills.github.com", "docs.github.com", "services.github.com", "socialimpact.github.com", "lab.github.com", "twitter.com", "help.twitter.com"]
+url='https://www.ndss-symposium.org/ndss2011/accepted-papers/'
 max_depth=2
 
-folder_name='usenix_security_24'
+folder_name='ndss-symposium-2011'
 
 
 def main():
@@ -18,7 +18,7 @@ def main():
     # crawl = WebCrawler(folder_name)
     # crawl.crawl_data(url, max_depth)
 
-    scrap = Scraper(url,folder_name,3)
+    scrap = Scraper(url,exclude_domains,folder_name,max_depth)
     scrap.scrape_page()
 
 

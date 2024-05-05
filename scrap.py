@@ -2,18 +2,22 @@ import os
 import requests
 import csv
 from urllib.parse import urljoin
+from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from datetime import datetime
 import time
 import re
+import PyPDF2
+from typing import List, Dict, Tuple, Any, Union
 
 def is_file_empty(file_path):
     return os.stat(file_path).st_size == 0
 
 
 class Scraper:
-    def __init__(self, base_url, folderPath, max_depth=3):
+    def __init__(self, base_url,exclude_domains:List[str] ,folderPath, max_depth=3):
         self.base_url = base_url
+        self.exclude_domains = exclude_domains
         self.max_depth = max_depth
         self.visited_url_path = os.path.join(folderPath, 'visited_urls.csv')
         self.scraped_url_path = os.path.join(folderPath,'scraped_urls.csv')
@@ -49,6 +53,38 @@ class Scraper:
 
         return path
 
+    def extract_filename_from_url(self,url):
+        # Extract the filename from the URL
+        filename = url.split("/")[-1]
+        if filename == "":
+            filename = url.split("/")[-2]
+
+        # Remove or replace special characters with safe character like '-'
+        filename = re.sub(r'[<>:"/\\|?*\x00-\x1F]', '-', filename)
+        return filename
+
+
+    def extract_text_from_pdf(pdf_url):
+        try:
+            response = requests.get(pdf_url)
+            if response.status_code == 200:
+                with open("temp.pdf", "wb") as f:
+                    f.write(response.content)
+                with open("temp.pdf", "rb") as f:
+                    pdf_reader = PyPDF2.PdfFileReader(f)
+                    text = ""
+                    for page_number in range(pdf_reader.numPages):
+                        page = pdf_reader.getPage(page_number)
+                        text += page.extractText()
+                # Remove temporary PDF file
+                os.remove("temp.pdf")
+                return text
+            else:
+                print(f"Failed to download PDF: {pdf_url}")
+                return None
+        except Exception as e:
+            print(f"Error extracting text from PDF: {e}")
+            return None
 
     def get_html_data(self, url):
         try:
@@ -75,6 +111,53 @@ class Scraper:
         with open(self.visited_url_path, 'r', encoding='utf-8') as visited_file:
             return url in visited_file.read().splitlines()
 
+    def should_exclude_domain(self, url):
+        parsed_url = urlparse(url)
+        domain = parsed_url.netloc
+        return any(exclude_domain in domain for exclude_domain in self.exclude_domains)
+
+    def save_data(self, url, soup):
+        file_name = self.extract_filename_from_url(url)
+        if file_name == "":
+            file_name = "home"
+        file_path = os.path.join(self.folderPath, "data", file_name + ".txt")  # Construct file path manually
+        scraped_urls_file = os.path.join(self.folderPath, 'scraped_urls.csv')
+
+        # Ensure that the directory exists, create it if not
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+        # Check if the content is a PDF
+        if url.endswith(".pdf"):
+            pdf_url = url
+            pdf_file_path = os.path.join(self.folderPath, "data", file_name + ".pdf")
+            try:
+                # Download PDF file
+                response = requests.get(pdf_url)
+                if response.status_code == 200:
+                    with open(pdf_file_path, 'wb') as file:
+                        file.write(response.content)
+                    with open(scraped_urls_file, 'a', newline='', encoding='utf-8') as csvfile:
+                        writer = csv.writer(csvfile)
+                        writer.writerow([f"data/{file_name}.pdf", url])
+                    self.add_visited_url(url)
+                else:
+                    print(f"Failed to download PDF: {pdf_url}")
+            except Exception as e:
+                print(f"Error downloading PDF: {e}")
+
+        else:
+            # Handle HTML content
+            with open(file_path, 'w', encoding='utf-8') as file:
+                file.write(soup.get_text())
+                file.write(f"\n\nScraped at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+            with open(scraped_urls_file, 'a', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow([f"data/{file_name}.txt", url])
+
+            self.add_visited_url(url)
+
+    """
     def save_data(self, url, soup):
         file_name = self.split_url(url)
         if file_name == "":
@@ -82,18 +165,58 @@ class Scraper:
         file_path = os.path.join(self.folderPath, "data", file_name + ".txt") # Construct file path manually
         scraped_urls_file = os.path.join(self.folderPath, 'scraped_urls.csv')
         visited_urls_file = os.path.join(self.folderPath, 'visited_urls.csv')
-       
+
         # Ensure that the directory exists, create it if not
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, 'w', encoding='utf-8') as file:
-            file.write(soup.get_text())
-            file.write(f"\n\nScraped at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-        with open(scraped_urls_file, 'a', newline='', encoding='utf-8') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow([f"data/{file_name}.txt", url])
+        # Check if the content is a PDF
+        if soup.find("meta", attrs={"name": "generator", "content": "Adobe Acrobat"}):
+            # Handle PDF file
+            pdf_url = url
+            pdf_text = self.extract_text_from_pdf(pdf_url)
+            if pdf_text:
+                with open(file_path, 'w', encoding='utf-8') as file:
+                    file.write(pdf_text)
+                    file.write(f"\n\nScraped at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                with open(scraped_urls_file, 'a', newline='', encoding='utf-8') as csvfile:
+                    writer = csv.writer(csvfile)
+                    writer.writerow([f"data/{file_name}.txt", url])
+                self.add_visited_url(url)
+            else:
+                print(f"Failed to extract text from PDF: {pdf_url}")
 
-        self.add_visited_url(url)
+        else:
+            # Handle HTML content
+            with open(file_path, 'w', encoding='utf-8') as file:
+                file.write(soup.get_text())
+                file.write(f"\n\nScraped at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+            with open(scraped_urls_file, 'a', newline='', encoding='utf-8') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow([f"data/{file_name}.txt", url])
+
+            self.add_visited_url(url)
+    """
+
+    def extract_text_from_pdf(self, pdf_url):
+        try:
+            response = requests.get(pdf_url)
+            if response.status_code == 200:
+                with open("temp.pdf", "wb") as f:
+                    f.write(response.content)
+                with open("temp.pdf", "rb") as f:
+                    pdf_reader = PyPDF2.PdfFileReader(f)
+                    text = ""
+                    for page_number in range(pdf_reader.numPages):
+                        page = pdf_reader.getPage(page_number)
+                        text += page.extractText()
+                return text
+            else:
+                print(f"Failed to download PDF: {pdf_url}")
+                return None
+        except Exception as e:
+            print(f"Error extracting text from PDF: {e}")
+            return None
 
         
 
@@ -103,9 +226,9 @@ class Scraper:
         if url is None:
             url = self.base_url
 
-        if self.base_url not in url:
-            print(f"Skipping URL {url} as it does not belong to the base URL {self.base_url}")
-            return
+        # if self.base_url not in url:
+        #     print(f"Skipping URL {url} as it does not belong to the base URL {self.base_url}")
+        #     return
 
         if max_depth is None:
             max_depth = self.max_depth
@@ -130,5 +253,5 @@ class Scraper:
 
             for link in links:
                 absolute_url = urljoin(url, link['href'])
-                if absolute_url.startswith(self.base_url):
+                if not self.should_exclude_domain(absolute_url):
                     self.scrape_page(absolute_url, max_depth, current_depth + 1)
