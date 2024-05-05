@@ -116,22 +116,23 @@ class Scraper:
         domain = parsed_url.netloc
         return any(exclude_domain in domain for exclude_domain in self.exclude_domains)
 
-    def download_pdf(self,pdf_url):
-
-        pdf_url = url
-        pdf_file_path = os.path.join(self.folderPath, "data", file_name + ".pdf")
+    def download_pdf(self,url):
+        file_name = self.extract_filename_from_url(url)
+        pdf_file_path = os.path.join(self.folderPath, "data", file_name + ".pdf")  # Construct file path manually
+        # Ensure that the directory exists, create it if not
+        os.makedirs(os.path.dirname(pdf_file_path), exist_ok=True)          
         try:
             # Download PDF file
-            response = requests.get(pdf_url)
+            response = requests.get(url)
             if response.status_code == 200:
                 with open(pdf_file_path, 'wb') as file:
                     file.write(response.content)
-                with open(scraped_urls_file, 'a', newline='', encoding='utf-8') as csvfile:
+                with open(self.scraped_url_path, 'a', newline='', encoding='utf-8') as csvfile:
                     writer = csv.writer(csvfile)
                     writer.writerow([f"data/{file_name}.pdf", url])
                 self.add_visited_url(url)
             else:
-                print(f"Failed to download PDF: {pdf_url}")
+                print(f"Failed to download PDF: {url}")
         except Exception as e:
              print(f"Error downloading PDF: {e}")
 
@@ -156,15 +157,7 @@ class Scraper:
         # Ensure that the directory exists, create it if not
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-        # Check if the content is a PDF
-        print(url)
-        if url.endswith(".pdf") or url.endswith(".pdf"):
-            print("URL FOUND PDF ! URL : ",url)
-            self.download_pdf(url)
-
-        # Handle HTML content
-        # else:
-        #     self.download_html_to_text(url, soup)
+        self.download_html_to_text(url, soup)
             
 
     """
@@ -243,7 +236,7 @@ class Scraper:
         if max_depth is None:
             max_depth = self.max_depth
 
-        if current_depth > max_depth:
+        if current_depth >= max_depth:
             return
 
 
@@ -252,14 +245,20 @@ class Scraper:
             return 
            
         time.sleep(2)
-        html_data = self.get_html_data(url)
-        if html_data:
-            soup = BeautifulSoup(html_data, 'html.parser')
-            self.save_data(url, soup)
-            soup = BeautifulSoup(html_data, 'html.parser')
-            links = soup.find_all('a', href=True)
-            self.add_visited_url(url)
-            for link in links:
-                absolute_url = urljoin(url, link['href'])
-                if not self.should_exclude_domain(absolute_url):
-                    self.scrape_page(absolute_url, max_depth, current_depth + 1)
+        if url.endswith(".pdf") or url.endswith(".pdf/"):
+            print("URL FOUND PDF ! URL : ",url)
+            print("Downloading PDF.....")
+            self.download_pdf(url)
+            return
+
+        else:
+            html_data = self.get_html_data(url)
+            if html_data:
+                soup = BeautifulSoup(html_data, 'html.parser')
+                self.save_data(url, soup)
+                links = soup.find_all('a', href=True)
+                self.add_visited_url(url)
+                for link in links:
+                    absolute_url = urljoin(url, link['href'])
+                    if not self.should_exclude_domain(absolutejson):
+                        self.scrape_page(absolute_url, max_depth, current_depth + 1)

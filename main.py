@@ -3,8 +3,8 @@ from crawl import WebCrawler
 from scrap import Scraper
 
 
-exclude_domains=  ["youtube.com","facebook.com","twitter.com","github.com", "skills.github.com", "docs.github.com", "services.github.com", "socialimpact.github.com", "lab.github.com", "twitter.com", "help.twitter.com"]
-url='https://www.ndss-symposium.org/ndss2011/accepted-papers/'
+exclude_domains=  ["www.linkedin.com","www.youtube.com","www.facebook.com","www.twitter.com","www.github.com", "www.skills.github.com", "www.docs.github.com", "www.services.github.com", "www.socialimpact.github.com", "www.lab.github.com", "www.twitter.com", "www.help.twitter.com"]
+url='https://www.ndss-symposium.org/wp-content/uploads/2017/09/schlegel.pdf'
 max_depth=1
 
 folder_name='ndss-symposium-2011'
