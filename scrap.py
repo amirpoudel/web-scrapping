@@ -136,17 +136,7 @@ class Scraper:
         except Exception as e:
              print(f"Error downloading PDF: {e}")
 
-    def download_html_to_text(self, url, soup):
-        with open(file_path, 'w', encoding='utf-8') as file:
-                file.write(soup.get_text())
-                file.write(f"\n\nScraped at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-        with open(self.scraped_url_path, 'a', newline='', encoding='utf-8') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow([f"data/{file_name}.txt", url])
-
-        self.add_visited_url(url)
-
+  
     def save_data(self, url, soup):
         file_name = self.extract_filename_from_url(url)
         if file_name == "":
@@ -157,7 +147,15 @@ class Scraper:
         # Ensure that the directory exists, create it if not
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-        self.download_html_to_text(url, soup)
+        with open(file_path, 'w', encoding='utf-8') as file:
+                file.write(soup.get_text())
+                file.write(f"\n\nScraped at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+        with open(self.scraped_url_path, 'a', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([f"data/{file_name}.txt", url])
+
+        self.add_visited_url(url)
             
 
     """
@@ -245,6 +243,7 @@ class Scraper:
             return 
            
         time.sleep(2)
+        print(f"Scraping {url}...")
         if url.endswith(".pdf") or url.endswith(".pdf/"):
             print("URL FOUND PDF ! URL : ",url)
             print("Downloading PDF.....")
@@ -255,10 +254,13 @@ class Scraper:
             html_data = self.get_html_data(url)
             if html_data:
                 soup = BeautifulSoup(html_data, 'html.parser')
-                self.save_data(url, soup)
+                #self.save_data(url, soup)
                 links = soup.find_all('a', href=True)
                 self.add_visited_url(url)
                 for link in links:
                     absolute_url = urljoin(url, link['href'])
-                    if not self.should_exclude_domain(absolutejson):
+                    if absolute_url.startswith("https://www.ndss-symposium.org/ndss2011") or absolute_url.startswith("https://www.ndss-symposium.org/wp-content/uploads"):
+                       
                         self.scrape_page(absolute_url, max_depth, current_depth + 1)
+                    # if not self.should_exclude_domain(absolute_url):
+                    #     self.scrape_page(absolute_url, max_depth, current_depth + 1)

@@ -4,10 +4,11 @@ from scrap import Scraper
 
 
 exclude_domains=  ["www.linkedin.com","www.youtube.com","www.facebook.com","www.twitter.com","www.github.com", "www.skills.github.com", "www.docs.github.com", "www.services.github.com", "www.socialimpact.github.com", "www.lab.github.com", "www.twitter.com", "www.help.twitter.com"]
-url='https://www.ndss-symposium.org/wp-content/uploads/2017/09/schlegel.pdf'
-max_depth=1
+url='https://www.ndss-symposium.org/ndss2011/accepted-papers/'
 
-folder_name='ndss-symposium-2011'
+max_depth=3
+
+folder_name='ndss-symposium-2011-pdfs'
 
 
 def main():
